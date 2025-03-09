@@ -9,6 +9,12 @@
 
 using namespace std;
 
+// Memory segment addresses
+const int CODE_SEGMENT_START = 0x00000000;
+const int DATA_SEGMENT_START = 0x10000000;
+const int HEAP_SEGMENT_START = 0x10008000;
+const int STACK_SEGMENT_START = 0x7FFFFFFC;
+
 // Opcode mappings
 unordered_map<string, string> opcode_map = {
     {"add", "0110011"}, {"andi", "0010011"}, {"or", "0110011"}, {"sll", "0110011"},
@@ -65,8 +71,13 @@ void processInstructions(const string& inputFile, const string& outputFile) {
         return;
     }
 
+    if (input.peek() == ifstream::traits_type::eof()) {
+        cerr << "Error: input.asm is empty!" << endl;
+        return;
+    }
+
     string line;
-    int address = 0;
+    int address = CODE_SEGMENT_START;
     while (getline(input, line)) {
         stringstream ss(line);
         string opcode, rd, rs1, rs2;
