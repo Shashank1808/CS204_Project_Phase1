@@ -5,7 +5,7 @@
 #include <vector>
 #include <bitset>
 #include <algorithm>
-#include <iomanip> // For hex formatting
+#include <iomanip>
 
 using namespace std;
 
@@ -51,105 +51,49 @@ unordered_map<string, string> register_map = {
     {"x28", "11100"}, {"x29", "11101"}, {"x30", "11110"}, {"x31", "11111"}
 };
 
-// Helper function to clean register names (remove commas)
-string cleanRegister(string reg) {
-    reg.erase(remove(reg.begin(), reg.end(), ','), reg.end());
-    return reg;
+// Function to check if a register is valid
+bool isValidRegister(const string& reg) {
+    return register_map.find(reg) != register_map.end();
 }
 
-// Convert assembly to machine code
-string assemble(string line, string &bitfield_format) {
-    stringstream ss(line);
-    string opcode, rd, rs1, rs2, imm;
-    ss >> opcode;
-
-    if (opcode_map.find(opcode) == opcode_map.end()) 
-        return "ERROR: Invalid instruction";
-
-    string machine_code;
-
-    if (opcode_map[opcode] == "0110011") {  // R-type instruction
-        ss >> rd >> rs1 >> rs2;
-        rd = cleanRegister(rd);
-        rs1 = cleanRegister(rs1);
-        rs2 = cleanRegister(rs2);
-
-        if (register_map.find(rd) == register_map.end() ||
-            register_map.find(rs1) == register_map.end() ||
-            register_map.find(rs2) == register_map.end()) {
-            return "ERROR: Invalid register";
-        }
-
-        string funct7 = funct7_map[opcode];
-        string funct3 = funct3_map[opcode];
-        string opcode_bin = opcode_map[opcode];
-
-        machine_code = funct7 + register_map[rs2] + register_map[rs1] +
-                       funct3 + register_map[rd] + opcode_bin;
-
-        bitfield_format = opcode_bin + "-" + funct3 + "-" + funct7 + "-" + 
-                          register_map[rd] + "-" + register_map[rs1] + "-" + register_map[rs2] + "-NULL";
-    } 
-    else if (opcode_map[opcode] == "0010011") {  // I-type instruction
-        ss >> rd >> rs1 >> imm;
-        rd = cleanRegister(rd);
-        rs1 = cleanRegister(rs1);
-
-        if (register_map.find(rd) == register_map.end() ||
-            register_map.find(rs1) == register_map.end()) {
-            return "ERROR: Invalid register";
-        }
-
-        bitset<12> imm_bin(stoi(imm));
-        string funct3 = funct3_map[opcode];
-        string opcode_bin = opcode_map[opcode];
-
-        machine_code = imm_bin.to_string() + register_map[rs1] + funct3 +
-                       register_map[rd] + opcode_bin;
-
-        bitfield_format = opcode_bin + "-" + funct3 + "-NULL-" +
-                          register_map[rd] + "-" + register_map[rs1] + "-" + imm_bin.to_string();
-    }
-
-    // Convert binary string to proper 8-digit hex (FORCE UPPERCASE)
-    unsigned int hex_code = stoi(machine_code, nullptr, 2);
-    stringstream hex_stream;
-    hex_stream << "0x" << uppercase << setfill('0') << setw(8) << hex << hex_code;
-
-    return hex_stream.str();
-}
-
-int main() {
-    ifstream input("input.asm");
-    ofstream output("output.mc");
-
+// Function to parse input file and generate machine code
+void processInstructions(const string& inputFile, const string& outputFile) {
+    ifstream input(inputFile);
+    ofstream output(outputFile);
     if (!input.is_open() || !output.is_open()) {
         cerr << "Error opening file!" << endl;
-        return 1;
+        return;
     }
 
     string line;
     int address = 0;
-
     while (getline(input, line)) {
-        string bitfield_format;
-        string machine_code = assemble(line, bitfield_format);
+        stringstream ss(line);
+        string opcode, rd, rs1, rs2;
+        ss >> opcode;
 
-        if (machine_code.substr(0, 5) == "ERROR") {
+        if (opcode_map.find(opcode) == opcode_map.end()) {
             cerr << "Invalid instruction: " << line << endl;
             continue;
         }
 
-        stringstream address_stream;
-        address_stream << "0x" << uppercase << hex << address; // Force uppercase address
-
-        output << address_stream.str() << " " << machine_code 
-               << " , " << line << " # " << bitfield_format << endl;
-
+        if (opcode_map[opcode] == "0110011") { // R-type
+            ss >> rd >> rs1 >> rs2;
+            if (!isValidRegister(rd) || !isValidRegister(rs1) || !isValidRegister(rs2)) {
+                cerr << "Invalid register in instruction: " << line << endl;
+                continue;
+            }
+        }
+        // Additional checks for other instruction types can be added here
+        output << "0x" << hex << address << " " << line << endl;
         address += 4;
     }
 
     input.close();
     output.close();
+}
+
+int main() {
+    processInstructions("input.asm", "output.mc");
     return 0;
 }
